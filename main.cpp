@@ -18,7 +18,7 @@ int main(int argc, const char * argv[])
     std::cout<<">>Go."<<std::endl;
     MDS mds;
     //mds.Test(10,true);
-    mds.Train(10,false);
+    //mds.Train(10,false);
     //mds.RANK(11);
     
     return 0;

@@ -9,9 +9,10 @@
 
 MDS::MDS():lambda(0.5),dim_unified(30),rank(10){
     std::cout<<"Loading data ..."<<std::endl;
-    LoadTrainLabel("/Users/miaoever/Project/CV/MDS/MDS/mat/cls_label_feret.mat");
-    LoadTrainData("/Users/miaoever/Project/CV/MDS/MDS/mat/MDS_train.mat");
+    LoadTrainLabel("/Users/miaoever/Project/MDS/MDS/mat/cls_label_feret.mat");
+    LoadTrainData("/Users/miaoever/Project/MDS/MDS/mat/MDS_train.mat");
 }
+
 void MDS::RANK(int x){
     this->rank = x;
     std::cout<<this->rank<<std::endl;
@@ -36,7 +37,7 @@ void MDS::LoadTestLabel(const char* file){
     mxArray *pa_h = matGetVariable(pmat, "label_g");
     double* val_l = mxGetPr(pa_l);
     double* val_h = mxGetPr(pa_h);
-    
+
     //std::cout<<val[nRow * 0 + 0]<<std::endl;
     this->test_l_label = val_l;
     this->test_h_label = val_h;
@@ -72,7 +73,9 @@ void MDS::LoadTrainData(const char*file){
     
     this->train_h = High_res;
     this->train_l = Low_res;
+
 }
+
 
 void MDS::LoadTestData(const char*file){
     size_t nRow_l, nCol_l, nRow_h, nCol_h;
@@ -125,6 +128,7 @@ void MDS::LoadProjectionMatrix(const char* file){
     fs.release();
 }
 
+
 void MDS::SavePreproceData(cv::Mat& A, double& B){
     std::string filename = "preproceccing.xml";
     cv::FileStorage fs(filename, cv::FileStorage::WRITE);
@@ -152,6 +156,7 @@ void MDS::Train(int iter = 10,bool pre = false){
         std::cout<<std::endl;
     }
     */
+    
     int type = train_l.type();
     int num_vector = train_l.cols;
     int dim_l = train_l.rows;
@@ -177,7 +182,7 @@ void MDS::Train(int iter = 10,bool pre = false){
     //std::cout<<W<<std::endl;
     std::cout<<">>Preproceccing."<<std::endl;
     if (pre == false)
-    {
+    { 
         for (int i = 0; i < num_vector; i++){
             for (int j = 0; j < num_vector; j++){
                 if (static_cast<int>(GetValue(train_label, dim_train_label, i, j)) == 1) {
@@ -186,6 +191,7 @@ void MDS::Train(int iter = 10,bool pre = false){
                     a = lambda;
                 }
                 //std::cout<<a<<std::endl;
+                std::cout<<a<<std::endl;
                 dist_q = (theta_l.col(i) - theta_h.col(j)) * (theta_l.col(i) - theta_h.col(j)).t();
                 A += a * dist_q;
                 double distance = cv::norm(train_h.col(i) - train_h.col(j));
@@ -195,6 +201,7 @@ void MDS::Train(int iter = 10,bool pre = false){
     } else {
         LoadPreproceData(A, B);
     }
+    
     cv::Mat _A;
     cv::invert(A, _A);
     std::cout<<">>Begin to iterate. "<<std::endl;

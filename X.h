@@ -25,7 +25,6 @@ public:
     X();
     void RANK(int x);
     void Train();
-    std::vector<std::vector<bool>> Knn(int);
     void Test(int rank , bool Load_Projection_Matrix);
 private:
     void LoadTrainLabel(const char* file);
@@ -33,12 +32,13 @@ private:
     void LoadTrainData(const char* file);
     void LoadTestData(const char* file);
     
+    std::vector<std::vector<bool>> Knn(int);
     void Gradient_descent();
-    cv::Mat BuildGraph();
-    Normalization(cv::Mat&);
-    cv::Mat Calc_diff(cv::Mat&);
-    void PSDProjection(cv::Mat&);
-    double Calc_value_obj(cv::Mat&);
+    cv::Mat BuildGraph(const cv::Mat&);
+    void Normalization(cv::Mat&);
+    cv::Mat Calc_diff(const cv::Mat&);
+    cv::Mat PSDProjection(const cv::Mat&);
+    double Calc_value_obj(const cv::Mat&);
     
 private:
     double* train_label;
@@ -48,10 +48,12 @@ private:
     double *val_h;
     size_t dim_train_label;
     
+    double lambda;
     double gamma1;
     double gamma2;
     
     cv::Mat W;
+    cv::Mat P;
     cv::Mat theta_l;
     cv::Mat theta_h;
     

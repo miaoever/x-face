@@ -23,8 +23,8 @@ typedef struct Point{
 class X {
 public:
     X();
-    void RANK(int x);
-    void Train();
+    void RANK(int );
+    void Train(double, int, int, double, double, int);
     void Test(int rank , bool Load_Projection_Matrix);
 private:
     void LoadTrainLabel(const char* file);
@@ -59,11 +59,14 @@ private:
     
     cv::Mat train_l;
     cv::Mat train_h;
+    cv::Mat test_h;
+    cv::Mat test_l;
+    
     int dim_unified;
     int Max_iteration;
     int step;
     
-    std::vector<std::vector<bool>> adj;
+    std::vector<std::vector<bool> > adj;
     std::vector<Point> NonZeroAdj;
     //cv::Mat weight;
 };

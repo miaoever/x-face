@@ -9,6 +9,7 @@
 #include <iostream>
 #include <string>
 #include "MDS.h"
+#include "X.h"
 
 
 int main(int argc, const char * argv[])
@@ -17,6 +18,8 @@ int main(int argc, const char * argv[])
     a.at<double>(0,0) = 0;
     a.at<double>(0,2) = 0;
 
+    X x;
+    x.Train(0.5, 70, 0.1, 10, 100, 10);
      //cv::invert(a*3,a);
     //std::cout<<a<<std::endl;
 

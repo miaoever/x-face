@@ -34,8 +34,8 @@ private:
     
     std::vector<std::vector<bool>> Knn(int);
     void Gradient_descent();
-    cv::Mat BuildGraph(const cv::Mat&);
-    void Normalization(cv::Mat&);
+    cv::Mat BuildGraph(const cv::Mat&, int type);
+    void Normalization(cv::Mat&, int);
     cv::Mat Calc_diff(const cv::Mat&);
     cv::Mat PSDProjection(const cv::Mat&);
     double Calc_value_obj(const cv::Mat&);

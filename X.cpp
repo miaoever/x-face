@@ -21,10 +21,20 @@ bool cmp (Pos a, Pos b) {
     return (a.value < b.value );
 }
 
+double GetValue(double* array, size_t nRow, int idx_i, int idx_j){
+    return array[nRow * idx_j + idx_i];
+}
+
+double lowest_double = 0.00000000000001;
+
+
 X::X() {
     std::cout<<"Loading data ..."<<std::endl;
-    LoadTrainLabel("/Users/miaoever/Project/MDS/MDS/mat/cls_label_feret.mat");
-    LoadTrainData("/Users/miaoever/Project/MDS/MDS/mat/MDS_train.mat");
+//    LoadTrainLabel("/Users/miaoever/Project/MDS/MDS/mat/cls_label_feret.mat");
+//    LoadTrainData("/Users/miaoever/Project/MDS/MDS/mat/MDS_train.mat");
+    LoadTrainData("/Users/miaoever/Desktop/train.mat");
+    LoadTrainLabel("/Users/miaoever/Desktop/train_Label.mat");
+    
 }
 
 void X::Train(double lambda, int dim_unified, int step, double gamma1, double gamma2, int Max_iteration) {
@@ -42,8 +52,6 @@ void X::Train(double lambda, int dim_unified, int step, double gamma1, double ga
     int num_vector = train_l.cols;
     int dim_l = train_l.rows;
     int dim_h = train_h.rows;
-    
-    
   
 //    cv::Mat w1(dim_unified, dim_l, type);
 //    cv::Mat w2(dim_unified, dim_h, type);
@@ -62,47 +70,57 @@ void X::Train(double lambda, int dim_unified, int step, double gamma1, double ga
 
     cv::vconcat(train_l, cv::Mat::zeros(dim_h, num_vector, type), theta_l);
     cv::vconcat(cv::Mat::zeros(dim_l, num_vector, type), train_h, theta_h);
-    
     adj = Knn(4);
-    
     Gradient_descent();
 }
 
 void X::Gradient_descent() {
-    P = BuildGraph(W); ///TODO - for P, the adj should be one representing the most similarity.
+    P = BuildGraph(W, 1);
     cv::Mat _W, diff_W;
-    
+    //std::cout<<P<<std::endl;
+
     _W = W;
-    //std::cout<<adj<<std::endl;
+    //std::cout<<P;
 
     for (int i = 0; i < Max_iteration; i ++) {
-        diff_W = Calc_diff(_W);
-        _W = _W - step * diff_W;
+        //diff_W = ;
+        _W -= step * Calc_diff(_W);
         _W = PSDProjection(_W);
         double _Value = Calc_value_obj(_W);
         
 //#ifdef __DEGUB__
         //std::printf("term: %d     value: %f\n", i, _Value);
+        std::cout.precision(15);
         std::cout<<_Value<<std::endl;
 //#endif
     }
     W = _W;
 }
 
-cv::Mat X::BuildGraph(const cv::Mat& W) {
-    size_t len = NonZeroAdj.size();
+cv::Mat X::BuildGraph(const cv::Mat& W, int type) {
     cv::Mat weight = cv::Mat(theta_l.cols, theta_l.cols, CV_64FC1, double(0));
+    double gamma = 0.0;
+    
+    type == 1 ? gamma = gamma1 : gamma = gamma2;
 
+    size_t len = NonZeroAdj.size();
     for (int i = 0; i < len; i++) {
         cv::Mat tmp =  ((theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)).t() * W) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y));
-        //std::cout<<tmp<<std::endl;
-        weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = cv::exp(- tmp.at<double>(0) / (2 * gamma2));
+        weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = cv::exp(- tmp.at<double>(0) / (2 * gamma));
+
+//        if (type == 1 && static_cast<int>(GetValue(train_label, dim_train_label, NonZeroAdj[i].x, NonZeroAdj[i].y)) == 1) {
+//            weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = 1;
+//        } else {
+//            cv::Mat tmp =  ((theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)).t() * W) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y));
+//            //std::cout<<tmp<<std::endl;
+//            weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = cv::exp(- tmp.at<double>(0) / (2 * gamma));
+//        }
     }
-    Normalization(weight);
+    Normalization(weight, type);
     return weight;
 }
 
-void X::Normalization(cv::Mat& weight) {
+void X::Normalization(cv::Mat& weight, int type) {
     size_t r = weight.rows;
     size_t c = weight.cols;
     //cv::Mat sum = cv::Mat(weight.rows, weight.cols, weight.type());
@@ -111,10 +129,20 @@ void X::Normalization(cv::Mat& weight) {
     
     //calc the sum of each row for weight.
     cv::reduce(weight.t(), sum, 0, CV_REDUCE_SUM);
+    for (int i = 0; i < r; i ++) {
+        for (int j = 0; j < c; j ++) {
+            weight.at<double>(i,j) = _w.at<double>(i, j) / (sum.col(i).at<double>(0) - _w.at<double>(i, i) + lowest_double);
+        }
+    }
     
-    for (int i = 0; i < c; i ++) {
-        for (int j = 0; j < r; j ++) {
-            weight.at<double>(i,j) = _w.at<double>(i, j) / (sum.col(i).at<double>(0) - _w.at<double>(i, i));
+    //P = weight;
+    
+    if (type == 1) {
+        size_t len = NonZeroAdj.size();
+        for (int i = 0; i < len; i++) {
+            if (static_cast<int>(GetValue(train_label, dim_train_label, NonZeroAdj[i].x, NonZeroAdj[i].y)) == 1) {
+                weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = 1;
+            }
         }
     }
 }
@@ -162,8 +190,8 @@ std::vector<std::vector<bool>> X::Knn(int k) {
 
 cv::Mat X::Calc_diff(const cv::Mat& W) {
     
-    cv::Mat Q = BuildGraph(W);
-    cv::Mat M = cv::Mat(W.rows, W.cols, W.type(), double(0));
+    cv::Mat Q = BuildGraph(W, 0);
+    cv::Mat M = cv::Mat::zeros(W.rows, W.cols, W.type());
     
     size_t len = NonZeroAdj.size();
     for (int i = 0; i < len; i++) {
@@ -171,17 +199,19 @@ cv::Mat X::Calc_diff(const cv::Mat& W) {
     }
     
     return (1 / (2 * gamma2)) * M;
+    //return M;
+
 }
 
 cv::Mat X::PSDProjection(const cv::Mat& W) {
     cv::Mat eigenVector, eigenValue;
-    cv::Mat S;
+    cv::Mat S = cv::Mat::zeros(W.rows, W.cols, W.type());
     if (cv::eigen(W, eigenValue, eigenVector)) {
         int len = eigenVector.rows;
         
         for (int i = 0; i < len; i++) {
             ////cv::Mat t = eigenVector.row(i).t() * eigenVector.row(i);
-            cv::Mat t = cv::max(eigenValue.row(i).at<double>(0), 0.0) * eigenVector.row(i).t() * eigenVector.row(i);
+            //cv::Mat t = cv::max(eigenValue.row(i).at<double>(0), 0.0) * eigenVector.row(i).t() * eigenVector.row(i);
             S = S + cv::max(eigenValue.row(i).at<double>(0), 0.0) * eigenVector.row(i).t() * eigenVector.row(i);
         }
     }
@@ -192,11 +222,11 @@ cv::Mat X::PSDProjection(const cv::Mat& W) {
 double X::Calc_value_obj(const cv::Mat& W) {
     
     //constexpr double lowest_double = cv::abs(std::numeric_limits<double>::lowest());
-    double lowest_double = 0.000000000001;
+    double lowest_double = 0.000000000000001;
     
-    cv::Mat Q = BuildGraph(W);
+    cv::Mat Q = BuildGraph(W, 0);
 
-    cv::Mat M = cv::Mat(W.rows, W.cols, W.type(), double(0));
+    //cv::Mat M = cv::Mat(W.rows, W.cols, W.type(), double(0));
     
     int r = P.rows;
     int c = P.cols;
@@ -206,7 +236,7 @@ double X::Calc_value_obj(const cv::Mat& W) {
         for (int j = 0; j < c; j ++) {
             double t1 = log10(P.at<double>(i, j) + lowest_double) ;
             double t2 = log10(Q.at<double>(i, j) + lowest_double);
-            res += P.at<double>(i, j) * log10(P.at<double>(i, j) + lowest_double) - P.at<double>(i, j)* log10(Q.at<double>(i, j) + lowest_double );
+            res += P.at<double>(i, j) * log10(P.at<double>(i, j) + lowest_double) - P.at<double>(i, j) * log10(Q.at<double>(i, j) + lowest_double );
         }
     }
     return res;
@@ -216,7 +246,9 @@ void X::LoadTrainLabel(const char* file){
     size_t nRow, nCol;
     //const char* file = "/Users/miaoever/Project/CV/MDS/MDS/mat/cls_label_feret.mat";
     MATFile *pmat = matOpen(file, "r");
-    mxArray *pa = matGetVariable(pmat, "data");
+    //mxArray *pa = matGetVariable(pmat, "data");
+    mxArray *pa = matGetVariable(pmat, "L");
+
     double* val = mxGetPr(pa);
     nRow = mxGetM(pa);
     nCol = mxGetN(pa);
@@ -301,6 +333,7 @@ void X::LoadTestData(const char*file){
     this->test_l = Low_res;
 }
 
+    
 
 
 

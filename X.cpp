@@ -18,14 +18,15 @@ typedef struct Pos {
 } Pos;
 
 bool cmp (Pos a, Pos b) {
-    return (a.value < b.value );
+    return (a.value <= b.value );
 }
 
 double GetValue(double* array, size_t nRow, int idx_i, int idx_j){
     return array[nRow * idx_j + idx_i];
 }
 
-double lowest_double = 0.00000000000001;
+double lowest_double = cv::exp(-150);
+//(*((long long*)&lowest_double))= ~(1LL<<52);
 
 
 X::X() {
@@ -76,16 +77,22 @@ void X::Train(double lambda, int dim_unified, int step, double gamma1, double ga
 
 void X::Gradient_descent() {
     P = BuildGraph(W, 1);
+    
     cv::Mat _W, diff_W;
     //std::cout<<P<<std::endl;
 
     _W = W;
-    //std::cout<<P;
+    //std::cout<<P<<std::endl;
 
     for (int i = 0; i < Max_iteration; i ++) {
-        //diff_W = ;
-        _W -= step * Calc_diff(_W);
+        diff_W = Calc_diff(_W);
+        //std::cout<<diff_W<<std::endl;
+        _W -= step * diff_W;
+        //std::cout<<_W<<std::endl;
+
         _W = PSDProjection(_W);
+        //std::cout<<_W<<std::endl;
+
         double _Value = Calc_value_obj(_W);
         
 //#ifdef __DEGUB__
@@ -98,57 +105,74 @@ void X::Gradient_descent() {
 }
 
 cv::Mat X::BuildGraph(const cv::Mat& W, int type) {
-    cv::Mat weight = cv::Mat(theta_l.cols, theta_l.cols, CV_64FC1, double(0));
+    cv::Mat weight = cv::Mat::zeros(theta_l.cols, theta_l.cols, CV_64FC1);
     double gamma = 0.0;
     
     type == 1 ? gamma = gamma1 : gamma = gamma2;
 
     size_t len = NonZeroAdj.size();
-    for (int i = 0; i < len; i++) {
-        cv::Mat tmp =  ((theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)).t() * W) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y));
-        weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = cv::exp(- tmp.at<double>(0) / (2 * gamma));
-
-//        if (type == 1 && static_cast<int>(GetValue(train_label, dim_train_label, NonZeroAdj[i].x, NonZeroAdj[i].y)) == 1) {
-//            weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = 1;
-//        } else {
-//            cv::Mat tmp =  ((theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)).t() * W) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y));
-//            //std::cout<<tmp<<std::endl;
-//            weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = cv::exp(- tmp.at<double>(0) / (2 * gamma));
-//        }
+    if (type == 1) {
+        for (int i = 0; i < len; i++) {
+            cv::Mat tmp =  ((theta_h.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)).t() * 1) * (theta_h.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y));
+            weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = exp(- tmp.at<double>(0) / (2 * gamma));
+        }
+    } else {
+        for (int i = 0; i < len; i++) {
+            cv::Mat tmp =  ((theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)).t() * W) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y));
+            weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = cv::exp(- tmp.at<double>(0) / (2 * gamma));
+        }
     }
+
+    
+    //std::cout<<- tmp.at<double>(0) / (2 * gamma)<<std::endl;
+    //std::cout<<(double)(exp(- tmp.at<double>(0) / (2 * gamma)))<<std::endl;
+    //weight.at<double>(NonZeroAdj[i].y, NonZeroAdj[i].x) = cv::exp(- tmp.at<>(0) / (2 * gamma));
+    
+    //        if (type == 1 && static_cast<int>(GetValue(train_label, dim_train_label, NonZeroAdj[i].x, NonZeroAdj[i].y)) == 1) {
+    //            weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = 1;
+    //        } else {
+    //            cv::Mat tmp =  ((theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)).t() * W) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y));
+    //            //std::cout<<tmp<<std::endl;
+    //            weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = cv::exp(- tmp.at<double>(0) / (2 * gamma));
+    //        }
+    
+//    if (type != 1)
+//        std::cout<<weight<<std::endl;
     Normalization(weight, type);
     return weight;
 }
 
 void X::Normalization(cv::Mat& weight, int type) {
-    size_t r = weight.rows;
-    size_t c = weight.cols;
-    //cv::Mat sum = cv::Mat(weight.rows, weight.cols, weight.type());
     cv::Mat sum;
     cv::Mat _w = weight.clone();
     
-    //calc the sum of each row for weight.
-    cv::reduce(weight.t(), sum, 0, CV_REDUCE_SUM);
-    for (int i = 0; i < r; i ++) {
-        for (int j = 0; j < c; j ++) {
-            weight.at<double>(i,j) = _w.at<double>(i, j) / (sum.col(i).at<double>(0) - _w.at<double>(i, i) + lowest_double);
-        }
-    }
+    cv::reduce(weight, sum, 0, CV_REDUCE_SUM);
+    cv::divide(_w, cv::Mat::ones(_w.rows, 1, _w.type())*sum + lowest_double, weight);
     
-    //P = weight;
+//    size_t r = weight.rows;
+//    size_t c = weight.cols;
+//    calc the sum of each row for weight.
+//    cv::reduce(weight.t(), sum, 0, CV_REDUCE_SUM);
+//    for (int i = 0; i < r; i ++) {
+//        for (int j = 0; j < c; j ++) {
+//            weight.at<double>(i,j) = (_w.at<double>(i, j)) / (sum.col(i).at<double>(0) - _w.at<double>(i, i) + lowest_double);
+//        }
+//    }
     
     if (type == 1) {
         size_t len = NonZeroAdj.size();
         for (int i = 0; i < len; i++) {
             if (static_cast<int>(GetValue(train_label, dim_train_label, NonZeroAdj[i].x, NonZeroAdj[i].y)) == 1) {
                 weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = 1;
+                //weight.at<double>(NonZeroAdj[i].y, NonZeroAdj[i].x) = 1;
+
             }
         }
     }
 }
 
 std::vector<std::vector<bool>> X::Knn(int k) {
-    int num = theta_l.cols;
+    int num = theta_l.cols; //the quantity of the training sample
     std::vector<std::vector<double>> dist(num, std::vector<double>(num));
     std::vector<std::vector<bool>> adj(num, std::vector<bool>(num));
     
@@ -179,9 +203,17 @@ std::vector<std::vector<bool>> X::Knn(int k) {
         std::sort(row.begin(), row.end(), cmp);
         
         for (int j = 0; j < k; j ++) {
-            adj[i][row[j].idx] = true;
-            Point p = {i, row[j].idx};
-            NonZeroAdj.push_back(p);
+            if (!adj[i][row[j].idx]) {
+                adj[i][row[j].idx] = true;
+                Point p1 = {i, row[j].idx};
+                NonZeroAdj.push_back(p1);
+            }
+
+            if (!adj[row[j].idx][i]) {
+                adj[row[j].idx][i] = true;
+                Point p2 = {row[j].idx, i};
+                NonZeroAdj.push_back(p2);
+            }
         }
     }
     
@@ -195,9 +227,11 @@ cv::Mat X::Calc_diff(const cv::Mat& W) {
     
     size_t len = NonZeroAdj.size();
     for (int i = 0; i < len; i++) {
+        //std::cout<< lambda * (P.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) - Q.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y)) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)).t();
         M = M + lambda * (P.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) - Q.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y)) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)).t();
     }
-    
+    //std::cout<< lambda * (P.at<double>(2, 0) - Q.at<double>(2, 0)) * (theta_l.col(2) - theta_h.col(0)) * (theta_l.col(2) - theta_h.col(0)).t();
+    //std::cout<<M;
     return (1 / (2 * gamma2)) * M;
     //return M;
 
@@ -208,11 +242,11 @@ cv::Mat X::PSDProjection(const cv::Mat& W) {
     cv::Mat S = cv::Mat::zeros(W.rows, W.cols, W.type());
     if (cv::eigen(W, eigenValue, eigenVector)) {
         int len = eigenVector.rows;
-        
+        //std::cout<<"Eigen Value :"<<std::endl<<eigenValue;
         for (int i = 0; i < len; i++) {
             ////cv::Mat t = eigenVector.row(i).t() * eigenVector.row(i);
             //cv::Mat t = cv::max(eigenValue.row(i).at<double>(0), 0.0) * eigenVector.row(i).t() * eigenVector.row(i);
-            S = S + cv::max(eigenValue.row(i).at<double>(0), 0.0) * eigenVector.row(i).t() * eigenVector.row(i);
+            S = S + cv::max(eigenValue.row(i).at<double>(0), (double)0.0) * eigenVector.row(i).t() * eigenVector.row(i);
         }
     }
 
@@ -222,7 +256,7 @@ cv::Mat X::PSDProjection(const cv::Mat& W) {
 double X::Calc_value_obj(const cv::Mat& W) {
     
     //constexpr double lowest_double = cv::abs(std::numeric_limits<double>::lowest());
-    double lowest_double = 0.000000000000001;
+    //double lowest_double = 0.000000000000001;
     
     cv::Mat Q = BuildGraph(W, 0);
 
@@ -231,15 +265,37 @@ double X::Calc_value_obj(const cv::Mat& W) {
     int r = P.rows;
     int c = P.cols;
     double res = 0.0;
+
+//    cv::Mat logP = P.clone();
+//    cv::Mat logQ = Q.clone();
+//    
+//    for (int i = 0; i < r; i ++) {
+//        for (int j = 0; j < c; j ++) {
+//            logP.at<double>(i, j) = log10(P.at<double>(i, j) + lowest_double);
+//            logQ.at<double>(i, j) = log10(Q.at<double>(i, j) + lowest_double);
+//        }
+//    }
+//    
+//    cv::Mat res1, res2;
+//    cv::multiply(P, logP, res1);
+//    cv::multiply(P, logQ, res2);
+//    
+//    cv::Mat sum1, sum2;
+//    
+//    cv::reduce(res1 - res2, sum1, 0, CV_REDUCE_SUM);
+//    cv::reduce(sum1.t(), sum2, 0, CV_REDUCE_SUM);
     
     for (int i = 0; i < r; i ++) {
         for (int j = 0; j < c; j ++) {
-            double t1 = log10(P.at<double>(i, j) + lowest_double) ;
-            double t2 = log10(Q.at<double>(i, j) + lowest_double);
+            //double t1 = log10(P.at<double>(i, j) + lowest_double) ;
+            //double t2 = log10(Q.at<double>(i, j) + lowest_double);
             res += P.at<double>(i, j) * log10(P.at<double>(i, j) + lowest_double) - P.at<double>(i, j) * log10(Q.at<double>(i, j) + lowest_double );
         }
     }
-    return res;
+    
+    
+return res;
+    //return sum2.at<double>(0);
 }
 
 void X::LoadTrainLabel(const char* file){

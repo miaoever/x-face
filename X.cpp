@@ -18,7 +18,7 @@ typedef struct Pos {
 } Pos;
 
 bool cmp (Pos a, Pos b) {
-    return (a.value <= b.value );
+    return (a.value < b.value );
 }
 
 double GetValue(double* array, size_t nRow, int idx_i, int idx_j){
@@ -193,7 +193,57 @@ std::vector<std::vector<bool>> X::Knn(int k) {
     }
     
     for (int i = 0; i < num; i ++) {
-       
+        std::vector<std::vector<Pos> > rows;
+        std::vector<Pos> row;
+        for (int j = 0; j < num; j ++) {
+            Pos p = {dist[i][j], j};
+            row.push_back(p);
+        }
+        
+        std::sort(row.begin(), row.end(), cmp);
+        rows.push_back(row);
+        
+        for (int j = 0; j < k; j ++) {
+            if (!adj[i][row[j].idx]) {
+                adj[i][row[j].idx] = true;
+                Point p1 = {i, row[j].idx};
+                NonZeroAdj.push_back(p1);
+            }
+            
+            if (!adj[row[j].idx][i]) {
+                adj[row[j].idx][i] = true;
+                Point p2 = {row[j].idx, i};
+                NonZeroAdj.push_back(p2);
+            }
+        }
+    }
+    
+    return adj;
+}
+/*
+std::vector<std::vector<bool>> X::Knn(int k) {
+    int num = theta_l.cols; //the quantity of the training sample
+    std::vector<std::vector<double>> dist(num, std::vector<double>(num));
+    std::vector<std::vector<bool>> adj(num, std::vector<bool>(num));
+    
+    for (int i = 0; i < num; i ++) {
+        for (int j = 0; j < num; j ++) {
+            dist[i][j] = 0;
+            adj[i][j] = false;
+        }
+    }
+    
+    for (int i = 0; i < num; i ++) {
+        for (int j = 0; j < num; j ++) {
+            if (dist[i][j] == 0) {
+                dist[i][j] = cv::norm(theta_h.col(i) - theta_h.col(j));
+                dist[j][i] = dist[i][j];
+            }
+        }
+    }
+    
+    for (int i = 0; i < num; i ++) {
+        //std::vector<std::vector<Pos> > row;
         std::vector<Pos> row;
         for (int j = 0; j < num; j ++) {
             Pos p = {dist[i][j], j};
@@ -219,6 +269,7 @@ std::vector<std::vector<bool>> X::Knn(int k) {
     
     return adj;
 }
+*/
 
 cv::Mat X::Calc_diff(const cv::Mat& W) {
     

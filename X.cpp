@@ -25,7 +25,7 @@ double GetValue(double* array, size_t nRow, int idx_i, int idx_j){
     return array[nRow * idx_j + idx_i];
 }
 
-double lowest_double = cv::exp(-150);
+double lowest_double = cv::exp(-150);//150
 //(*((long long*)&lowest_double))= ~(1LL<<52);
 
 
@@ -38,7 +38,7 @@ X::X() {
     
 }
 
-void X::Train(double lambda, int dim_unified, int step, double gamma1, double gamma2, int Max_iteration) {
+void X::Train(double lambda, int dim_unified, double step, double gamma1, double gamma2, int Max_iteration) {
     // 4 - the scale of neighborhood
     //cv::Mat adj = Knn(4);
     
@@ -65,10 +65,8 @@ void X::Train(double lambda, int dim_unified, int step, double gamma1, double ga
 
     cv::vconcat(w1.t(), w2.t(), W);
     
-    //W = cv::Mat::ones(W.rows, W.cols, type);
     W = W.t();
     W = W.t() * W;
-
     cv::vconcat(train_l, cv::Mat::zeros(dim_h, num_vector, type), theta_l);
     cv::vconcat(cv::Mat::zeros(dim_l, num_vector, type), train_h, theta_h);
     adj = Knn(4);
@@ -79,27 +77,18 @@ void X::Gradient_descent() {
     P = BuildGraph(W, 1);
     
     cv::Mat _W, diff_W;
-    //std::cout<<P<<std::endl;
 
-    _W = W;
-    //std::cout<<P<<std::endl;
-
+    _W = W.clone();
     for (int i = 0; i < Max_iteration; i ++) {
         diff_W = Calc_diff(_W);
-        //std::cout<<diff_W<<std::endl;
-        _W -= step * diff_W;
-        //std::cout<<_W<<std::endl;
-
+        _W = _W - step * diff_W;
         _W = PSDProjection(_W);
-        //std::cout<<_W<<std::endl;
 
         double _Value = Calc_value_obj(_W);
         
-//#ifdef __DEGUB__
         //std::printf("term: %d     value: %f\n", i, _Value);
         std::cout.precision(15);
         std::cout<<_Value<<std::endl;
-//#endif
     }
     W = _W;
 }
@@ -123,11 +112,6 @@ cv::Mat X::BuildGraph(const cv::Mat& W, int type) {
         }
     }
 
-    
-    //std::cout<<- tmp.at<double>(0) / (2 * gamma)<<std::endl;
-    //std::cout<<(double)(exp(- tmp.at<double>(0) / (2 * gamma)))<<std::endl;
-    //weight.at<double>(NonZeroAdj[i].y, NonZeroAdj[i].x) = cv::exp(- tmp.at<>(0) / (2 * gamma));
-    
     //        if (type == 1 && static_cast<int>(GetValue(train_label, dim_train_label, NonZeroAdj[i].x, NonZeroAdj[i].y)) == 1) {
     //            weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = 1;
     //        } else {
@@ -136,8 +120,6 @@ cv::Mat X::BuildGraph(const cv::Mat& W, int type) {
     //            weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = cv::exp(- tmp.at<double>(0) / (2 * gamma));
     //        }
     
-//    if (type != 1)
-//        std::cout<<weight<<std::endl;
     Normalization(weight, type);
     return weight;
 }
@@ -147,6 +129,7 @@ void X::Normalization(cv::Mat& weight, int type) {
     cv::Mat _w = weight.clone();
     
     cv::reduce(weight, sum, 0, CV_REDUCE_SUM);
+    
     cv::divide(_w, cv::Mat::ones(_w.rows, 1, _w.type())*sum + lowest_double, weight);
     
 //    size_t r = weight.rows;
@@ -164,8 +147,6 @@ void X::Normalization(cv::Mat& weight, int type) {
         for (int i = 0; i < len; i++) {
             if (static_cast<int>(GetValue(train_label, dim_train_label, NonZeroAdj[i].x, NonZeroAdj[i].y)) == 1) {
                 weight.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) = 1;
-                //weight.at<double>(NonZeroAdj[i].y, NonZeroAdj[i].x) = 1;
-
             }
         }
     }
@@ -192,8 +173,8 @@ std::vector<std::vector<bool>> X::Knn(int k) {
         }
     }
     
+    //std::vector<std::vector<Pos> > rows;
     for (int i = 0; i < num; i ++) {
-        std::vector<std::vector<Pos> > rows;
         std::vector<Pos> row;
         for (int j = 0; j < num; j ++) {
             Pos p = {dist[i][j], j};
@@ -201,7 +182,7 @@ std::vector<std::vector<bool>> X::Knn(int k) {
         }
         
         std::sort(row.begin(), row.end(), cmp);
-        rows.push_back(row);
+        //rows.push_back(row);
         
         for (int j = 0; j < k; j ++) {
             if (!adj[i][row[j].idx]) {
@@ -220,72 +201,18 @@ std::vector<std::vector<bool>> X::Knn(int k) {
     
     return adj;
 }
-/*
-std::vector<std::vector<bool>> X::Knn(int k) {
-    int num = theta_l.cols; //the quantity of the training sample
-    std::vector<std::vector<double>> dist(num, std::vector<double>(num));
-    std::vector<std::vector<bool>> adj(num, std::vector<bool>(num));
-    
-    for (int i = 0; i < num; i ++) {
-        for (int j = 0; j < num; j ++) {
-            dist[i][j] = 0;
-            adj[i][j] = false;
-        }
-    }
-    
-    for (int i = 0; i < num; i ++) {
-        for (int j = 0; j < num; j ++) {
-            if (dist[i][j] == 0) {
-                dist[i][j] = cv::norm(theta_h.col(i) - theta_h.col(j));
-                dist[j][i] = dist[i][j];
-            }
-        }
-    }
-    
-    for (int i = 0; i < num; i ++) {
-        //std::vector<std::vector<Pos> > row;
-        std::vector<Pos> row;
-        for (int j = 0; j < num; j ++) {
-            Pos p = {dist[i][j], j};
-            row.push_back(p);
-        }
-       
-        std::sort(row.begin(), row.end(), cmp);
-        
-        for (int j = 0; j < k; j ++) {
-            if (!adj[i][row[j].idx]) {
-                adj[i][row[j].idx] = true;
-                Point p1 = {i, row[j].idx};
-                NonZeroAdj.push_back(p1);
-            }
-
-            if (!adj[row[j].idx][i]) {
-                adj[row[j].idx][i] = true;
-                Point p2 = {row[j].idx, i};
-                NonZeroAdj.push_back(p2);
-            }
-        }
-    }
-    
-    return adj;
-}
-*/
 
 cv::Mat X::Calc_diff(const cv::Mat& W) {
     
     cv::Mat Q = BuildGraph(W, 0);
     cv::Mat M = cv::Mat::zeros(W.rows, W.cols, W.type());
-    
+
     size_t len = NonZeroAdj.size();
     for (int i = 0; i < len; i++) {
-        //std::cout<< lambda * (P.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) - Q.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y)) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)).t();
         M = M + lambda * (P.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y) - Q.at<double>(NonZeroAdj[i].x, NonZeroAdj[i].y)) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)) * (theta_l.col(NonZeroAdj[i].x) - theta_h.col(NonZeroAdj[i].y)).t();
     }
-    //std::cout<< lambda * (P.at<double>(2, 0) - Q.at<double>(2, 0)) * (theta_l.col(2) - theta_h.col(0)) * (theta_l.col(2) - theta_h.col(0)).t();
-    //std::cout<<M;
-    return (1 / (2 * gamma2)) * M;
-    //return M;
 
+    return (1 / (2 * gamma2)) * M;
 }
 
 cv::Mat X::PSDProjection(const cv::Mat& W) {
@@ -295,8 +222,6 @@ cv::Mat X::PSDProjection(const cv::Mat& W) {
         int len = eigenVector.rows;
         //std::cout<<"Eigen Value :"<<std::endl<<eigenValue;
         for (int i = 0; i < len; i++) {
-            ////cv::Mat t = eigenVector.row(i).t() * eigenVector.row(i);
-            //cv::Mat t = cv::max(eigenValue.row(i).at<double>(0), 0.0) * eigenVector.row(i).t() * eigenVector.row(i);
             S = S + cv::max(eigenValue.row(i).at<double>(0), (double)0.0) * eigenVector.row(i).t() * eigenVector.row(i);
         }
     }
@@ -338,8 +263,6 @@ double X::Calc_value_obj(const cv::Mat& W) {
     
     for (int i = 0; i < r; i ++) {
         for (int j = 0; j < c; j ++) {
-            //double t1 = log10(P.at<double>(i, j) + lowest_double) ;
-            //double t2 = log10(Q.at<double>(i, j) + lowest_double);
             res += P.at<double>(i, j) * log10(P.at<double>(i, j) + lowest_double) - P.at<double>(i, j) * log10(Q.at<double>(i, j) + lowest_double );
         }
     }

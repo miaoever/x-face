@@ -24,7 +24,7 @@ class X {
 public:
     X();
     void RANK(int );
-    void Train(double, int, int, double, double, int);
+    void Train(double, int, double, double, double, int);
     void Test(int rank , bool Load_Projection_Matrix);
 private:
     void LoadTrainLabel(const char* file);
@@ -64,7 +64,7 @@ private:
     
     int dim_unified;
     int Max_iteration;
-    int step;
+    double step;
     
     std::vector<std::vector<bool> > adj;
     std::vector<Point> NonZeroAdj;

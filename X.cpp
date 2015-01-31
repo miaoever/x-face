@@ -31,11 +31,10 @@ double lowest_double = cv::exp(-150);//150
 
 X::X() {
     std::cout<<"Loading data ..."<<std::endl;
-//    LoadTrainLabel("/Users/miaoever/Project/MDS/MDS/mat/cls_label_feret.mat");
-//    LoadTrainData("/Users/miaoever/Project/MDS/MDS/mat/MDS_train.mat");
+//  LoadTrainLabel("/Users/miaoever/Project/MDS/MDS/mat/cls_label_feret.mat");
+//  LoadTrainData("/Users/miaoever/Project/MDS/MDS/mat/MDS_train.mat");
     LoadTrainData("/Users/miaoever/Desktop/train.mat");
     LoadTrainLabel("/Users/miaoever/Desktop/train_Label.mat");
-    
 }
 
 void X::Train(double lambda, int dim_unified, double step, double gamma1, double gamma2, int Max_iteration) {
